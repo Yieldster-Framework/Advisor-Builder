@@ -141,17 +141,15 @@ JsonServiceImpl implements JsonService {
                 2.2) if(currentAllocation<=AP[i].protocolAllocation)
                     2.2.1) delta := AP[i].protocolAllocation - currentAllocation
                     2.2.2) amountToInvest := delta * VNAV
-                    2.2.3) For each of L[j]
-                        A) If L[i].totalPrice >=Tmin && amountToInvest >= Tmin
+                    2.2.3) if(amountToInvest >= Tmin)
+                        A) For each of L[j]
                             A.1) if L[j].totalPrice >=amountToInvest
                                 A.1.1) Move L[j].totalPrice / amountToInvest amount of assets to AP[i]
-                                A.1.2) Break
+                                A.1.2) Break for loop
                             A.2) else
                                 A.2.1) Move L[j].balance amounts of assets to AP[i]
-                        B) else, Increment i
-                    2.2.4) Increment i
-                2.3) else, increment i
-
+                                A.2.2) amountToInvest := amountToInvest - L[j].totalPrice
+                2.3) Increment i
              ---------------------------------------------------------------------------------------
              */
 
