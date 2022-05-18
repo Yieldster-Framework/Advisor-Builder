@@ -3,6 +3,7 @@ package com.ddc.yieldster.jsonbuilder.service.impl;
 import com.ddc.yieldster.jsonbuilder.model.Advisor;
 import com.ddc.yieldster.jsonbuilder.model.ConditionalStep;
 import com.ddc.yieldster.jsonbuilder.model.MoveStep;
+import com.ddc.yieldster.jsonbuilder.model.Step;
 import com.ddc.yieldster.jsonbuilder.response.ErrorResponse;
 import com.ddc.yieldster.jsonbuilder.response.Response;
 import com.ddc.yieldster.jsonbuilder.response.SuccessResponse;
@@ -12,7 +13,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.ListIterator;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -106,13 +110,33 @@ JsonServiceImpl implements JsonService {
 
 
 
-    public String portFolioAllocator(String vaultId){
-
+    public Advisor portFolioAllocator(String vaultId){
+        List<Step> steps = new ArrayList<>();
+        Double tMin = getMinimumTransactionSize(vaultId);
         Map<String,Object> vaultSettings = getVaultSetting(vaultId);
         Map<String,Integer> assetAllocation = (Map<String, Integer>) vaultSettings.get("assetAllocation");
-
+        List<String> investableAssets = new ArrayList<>(); // Get assets
+        List<String> apList = new ArrayList<>(); // get AP[] list
         if (vaultSettings.get("forcedRebalance").equals(true) || (getNavOfAssets(vaultId,assetAllocation)>=(Double)vaultSettings.get("minTransactionSize"))) {
-            //TODO: ADD LOGIC IMPLEMENTATION HERE
+            for (String api : apList){
+                Double vNav = getNavOfAssets(vaultId, assetAllocation);
+                double currentAllocation = priceOfProtocolToken(api) * balanceOf(vaultId) / vNav;
+                if(currentAllocation <= assetAllocation.get(api)){
+                    Double delta = assetAllocation.get(api) - currentAllocation;
+                    Double amountToInvest = delta * vNav;
+                    if(amountToInvest >= tMin){
+                        for(String investableAsset : investableAssets){
+                            Double totalPrice = getTotalPrice(investableAsset);
+                            if( totalPrice >= amountToInvest){
+                                steps.add(MoveStep.builder().fromAsset(investableAsset).toAsset(api).build());
+                            }else {
+                                steps.add(MoveStep.builder().fromAsset(investableAsset).toAsset(api).build());
+                                amountToInvest -= totalPrice;
+                            }
+                        }
+                    }
+                }
+            }
 
             /**
              Data needed:
@@ -153,10 +177,8 @@ JsonServiceImpl implements JsonService {
              ---------------------------------------------------------------------------------------
              */
 
-
-
-
-        return null;
+        }
+        return Advisor.builder().type("portFolioAllocator").steps(steps).build();
     }
 
     private Map<String,Object> getVaultSetting(String vaultId){
@@ -168,4 +190,19 @@ JsonServiceImpl implements JsonService {
         return null;
     }
 
+    private Double priceOfProtocolToken(String protocolId){
+        return null;
+    }
+
+    private Double balanceOf(String vaultId){
+        return null;
+    }
+
+    private Double getTotalPrice(String investableAsset){
+        return null;
+    }
+
+    private Double getMinimumTransactionSize(String vaultId){
+        return null;
+    }
 }
