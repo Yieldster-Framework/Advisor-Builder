@@ -19,3 +19,24 @@ client:
   host:
     uri: url of backend host
 ```
+### Sample advisor
+
+In the below sample advisor, the protocol address to which the vault is currently invested in is obtained using vaultServiceApi.getInvestedProtocolByVaultId(vaultId) function and an advisor instruction to invest the current investable assets (Ad) present in the vault into the current invested protocol. The function takes vaultId as an input parameter and returns the generated instruction JSON as string.
+
+```java
+public String investToProtocol(String vaultId) throws JsonProcessingException {
+        SDKResponse responseData = vaultServiceApi.getInvestedProtocolByVaultId(vaultId);
+        if (responseData.getStatusCode() == 200) {
+            String investedProtocolAddress = (String) responseData.getData();
+            Advisor advisor = Advisor.builder()
+                    .type("Sample_Advisor")
+                    .steps(ImmutableList.of(
+                            MoveStep.builder()
+                                    .type("MoveStep")
+                                    .fromAsset("Ad")
+                                    .toAsset(investedProtocolAddress)
+                                    .build())).build();
+            return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
+        } else return null;
+    }
+```
