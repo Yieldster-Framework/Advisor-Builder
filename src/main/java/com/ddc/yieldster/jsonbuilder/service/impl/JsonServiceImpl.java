@@ -128,7 +128,7 @@ JsonServiceImpl implements JsonService {
         List<Step> steps = new ArrayList<>();
         JsonNode vaultSettings = vault.get("vaultAdvisorSetting");
         Double tMin = vaultSettings.get("tMin").asDouble();
-        Map<String, Integer> assetAllocation = OBJECT_MAPPER.convertValue(vaultSettings.get("assetAllocation"), new TypeReference<Map<String, Integer>>() {
+        Map<String, Double> assetAllocation = OBJECT_MAPPER.convertValue(vaultSettings.get("assetAllocation"), new TypeReference<Map<String, Double>>() {
         });
         List<String> investableAssets = OBJECT_MAPPER.convertValue(vault.get("supportedAssets"), new TypeReference<List<String>>() {
         });
@@ -145,7 +145,10 @@ JsonServiceImpl implements JsonService {
                         for (String investableAsset : investableAssets) {
                             Double totalPrice = priceOfProtocolToken(investableAsset);
                             steps.add(MoveStep.builder().fromAsset(investableAsset).toAsset(api).build());
-                            if (totalPrice < amountToInvest) {
+                            if (totalPrice >= amountToInvest) {
+                                steps.add(MoveStep.builder().fromAsset(investableAsset).toAsset(api).amount(totalPrice / amountToInvest).build());
+                            } else {
+                                steps.add(MoveStep.builder().fromAsset(investableAsset).toAsset(api).amount(balanceOf(investableAsset, vaultAddress)).build());
                                 amountToInvest -= totalPrice;
                             }
                         }
