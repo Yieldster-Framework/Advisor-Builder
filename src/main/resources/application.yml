@@ -1,6 +1,0 @@
-server:
-  port: 6001
-
-client:
-  host:
-    uri: http://localhost:8050
