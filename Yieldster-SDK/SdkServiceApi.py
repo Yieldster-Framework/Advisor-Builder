@@ -5,6 +5,7 @@ import null
 from PythonNew1 import openapi_client
 from pprint import pprint
 from PythonNew1.openapi_client.api import sdk_service_api
+from config import Config
 
 
 class sdkApi:
@@ -14,7 +15,7 @@ class sdkApi:
     def __init__(self):
         # self.jwt_token = ""
         configuration = openapi_client.Configuration(
-            host="http://localhost:8051"
+            host= Config.JAVA_API_URL
             # access_token=jwt_token
         )
 
@@ -42,8 +43,11 @@ class sdkApi:
     #     api_response = api_instance.get_vault_nav(vault_address, async_req=True)
     #     return api_response.get()
 
-    def get_vault_nav(self, vault_address, time_stamp, is_date):
-        api_response = self.api_instance.get_vault_nav(vault_address, timestamp=time_stamp, is_date=is_date,
+    def get_vault_nav(self, vault_address,**kwargs):
+        if kwargs.__len__() == 0:
+            api_response = self.api_instance.get_vault_nav(vault_address,async_req=True)
+        else:
+            api_response = self.api_instance.get_vault_nav(vault_address, timestamp=kwargs['time_stamp'], is_date=kwargs['is_date'],
                                                        async_req=True)
         return api_response.get()
 
@@ -51,14 +55,19 @@ class sdkApi:
         api_response = self.api_instance.get_vault_assets(vault_address, async_req=True)
         return api_response.get()
 
-    def get_token_price(self, token_address, is_vault_token, time_stamp, is_date):
-        api_response = self.api_instance.get_token_price(token_address, is_vault_token=is_vault_token,
-                                                         timestamp=time_stamp, is_date=is_date, async_req=True)
+    def get_token_price(self, token_address, is_vault_token,**kwargs):
+        if kwargs.__len__()==0:
+            api_response = self.api_instance.get_token_price(token_address, is_vault_token=is_vault_token,async_req=True)
+        else:
+            api_response = self.api_instance.get_token_price(token_address, is_vault_token=is_vault_token,
+                                                         timestamp=kwargs['time_stamp'], is_date=kwargs['is_date'], async_req=True)
         return api_response.get()
 
-    def get_token_balance(self, vault_address, token_address, timestamp, is_date):
-        api_response = self.api_instance.get_token_balance(vault_address, token_address, timestamp=timestamp,
-                                                           is_date=is_date, async_req=True)
+    def get_token_balance(self, vault_address, token_address,**kwargs):
+        if kwargs.__len__() == 0:
+            api_response = self.api_instance.get_token_balance(vault_address, token_address,async_req=True)
+        else:
+            api_response = self.api_instance.get_token_balance(vault_address, token_address,      timestamp=kwargs['time_stamp'], is_date=kwargs['is_date'], async_req=True)
         return api_response.get()
 
         # def protocol_interaction(protocol_interaction):
