@@ -9,7 +9,8 @@ import java.util.List;
 @Builder
 @Value
 @Data
-public final class Advisor {
-	String advisorType;
-	List<Step> steps;
+public class HarvestStep extends Step {
+    String type = "HarvestStep";
+    String stakingContract;
+    List<String> returnTokens;
 }

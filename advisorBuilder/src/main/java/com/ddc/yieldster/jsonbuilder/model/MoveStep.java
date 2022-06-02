@@ -8,6 +8,8 @@ import lombok.Value;
 @Value
 @Data
 public class MoveStep extends Step {
-	 String fromAsset;
-	 String toAsset;
+    String type = "MoveStep";
+    String fromAsset;
+    String toAsset;
+    Double amount;
 }

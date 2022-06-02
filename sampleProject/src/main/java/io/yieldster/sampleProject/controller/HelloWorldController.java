@@ -27,6 +27,6 @@ public class HelloWorldController {
 
     @GetMapping("/getAssetByVaultId/{id}")
     public SDKResponse getAssetByVaultId(@PathVariable String id) {
-        return helloWorldService.getVaultAssets(id);
+        return helloWorldService.getVaultAdvisorSetting(id);
     }
 }

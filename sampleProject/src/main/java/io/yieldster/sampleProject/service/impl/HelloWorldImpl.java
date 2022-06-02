@@ -35,10 +35,10 @@ public class HelloWorldImpl implements HelloWorldService {
         return sdkServiceApi.getVaultNAV(vaultAddress, null, null);
     }
 
-    //Function to get list of assets supported by a vault
+    //Function to get getVaultAdvisorSetting of a vault
     //@Param: vaultId:- Id of the required vault
-    public SDKResponse getVaultAssets(String vaultId) {
-        return vaultServiceApi.getAssetByVaultId(vaultId);
+    public SDKResponse getVaultAdvisorSetting(String vaultId) {
+        return vaultServiceApi.getAdvisorSettingByVaultId(vaultId);
     }
 
     //Function to get price of token( stable coin or vault token)
@@ -47,7 +47,7 @@ public class HelloWorldImpl implements HelloWorldService {
     //@Param: date( DD-MM-YYYY HH:MM:SS format) / timestamp. if null uses current blockNumber by default
     //@Param: boolean:- true if provided above param is date; false if the provided param is timestamp
     public SDKResponse getTokenPrice(String tokenAddress) {
-        return sdkServiceApi.getTokenPrice(tokenAddress, false, null, null);
+        return sdkServiceApi.getTokenPrice1(tokenAddress, false, null, null);
     }
 
     /*
@@ -57,28 +57,27 @@ public class HelloWorldImpl implements HelloWorldService {
     public String generateMaximizeAssetReturn() throws JsonProcessingException {
 
         String yvCurve_FRAX = "0xB4AdA607B9d6b2c9Ee07A275e9616B84AC560139";
-//        SDKResponse currentTokenData = sdkServiceApi.getTokenPrice(yvCurve_FRAX, false, null, null);
-//        SDKResponse previousTokenData = sdkServiceApi.getTokenPrice(yvCurve_FRAX, false, "1650737071", false);
-//        if (currentTokenData.getStatusCode() == 200 && previousTokenData.getStatusCode() == 200) {
-//            Map<String, Object> currentTokenDataMap = (Map<String, Object>) currentTokenData.getData();
-//            Map<String, Object> previousTokenDataMap = (Map<String, Object>) previousTokenData.getData();
-//
-//            Long currentTokenPrice = (Long) currentTokenDataMap.get("Token Price");
-//            Long previousTokenPrice = (Long) previousTokenDataMap.get("Token Price");
-//            // The difference in price percentage is calculated.
-//            double priceDifferencePercentage = ((currentTokenPrice - previousTokenPrice) / previousTokenPrice) * 100;
-            if (1 > 0.5) {
+        SDKResponse currentTokenData = sdkServiceApi.getTokenPrice1(yvCurve_FRAX, false, null, null);
+        SDKResponse previousTokenData = sdkServiceApi.getTokenPrice1(yvCurve_FRAX, false, "1650737071", false);
+        if (currentTokenData.getStatusCode() == 200 && previousTokenData.getStatusCode() == 200) {
+            Map<String, Object> currentTokenDataMap = (Map<String, Object>) currentTokenData.getData();
+            Map<String, Object> previousTokenDataMap = (Map<String, Object>) previousTokenData.getData();
+
+            Long currentTokenPrice = (Long) currentTokenDataMap.get("Token Price");
+            Long previousTokenPrice = (Long) previousTokenDataMap.get("Token Price");
+            // The difference in price percentage is calculated.
+            double priceDifferencePercentage = ((currentTokenPrice - previousTokenPrice) / previousTokenPrice) * 100;
+            if (priceDifferencePercentage > 0.5) {
                 Advisor advisor = Advisor.builder()
-                        .type("Sample_Advisor")
+                        .advisorType("Sample_Advisor")
                         .steps(ImmutableList.of(
                                 MoveStep.builder()
                                         .fromAsset("Ad")
                                         .toAsset(yvCurve_FRAX)
                                         .build())).build();
                 return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
-            }
-//        }
-        return null;
+            } else return null;
+        } else return null;
     }
 
     //Sample Advisor: Maximize APR
@@ -87,7 +86,7 @@ public class HelloWorldImpl implements HelloWorldService {
     //In this type of Advisor most of the computation is done in the backend
     private Advisor createAdvisorMaximizeAPR() {
         return Advisor.builder()
-                .type("Maximize_APR")
+                .advisorType("Maximize_APR")
                 .steps(ImmutableList.of(
                         ConditionalStep.builder()
                                 .conditionalStatement("Ad >= TMin")

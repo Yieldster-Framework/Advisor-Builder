@@ -1,6 +1,7 @@
 package com.ddc.yieldster.jsonbuilder.clientapi;
 
 
+import com.swagger.client.codegen.rest.api.HarvestExecutionServiceApi;
 import com.swagger.client.codegen.rest.api.PathExecutionServiceApi;
 import com.swagger.client.codegen.rest.api.SdkServiceApi;
 import com.swagger.client.codegen.rest.api.VaultServiceApi;
@@ -19,6 +20,7 @@ public class ClientApiConfig {
 
         ApiClient apiClient = new ApiClient();
         apiClient.setBasePath(hostBasePath);
+        apiClient.setAccessToken(""); // add jwt token for authentication
         return apiClient;
     }
 
@@ -35,5 +37,10 @@ public class ClientApiConfig {
     @Bean
     public VaultServiceApi vaultServiceApi() {
         return new VaultServiceApi(apiClient());
+    }
+
+    @Bean
+    public HarvestExecutionServiceApi harvestExecutionServiceApi() {
+        return new HarvestExecutionServiceApi(apiClient());
     }
 }

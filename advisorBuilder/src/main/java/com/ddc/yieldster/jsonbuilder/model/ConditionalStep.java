@@ -10,7 +10,8 @@ import java.util.List;
 @Value
 @Data
 public class ConditionalStep extends Step {
-	String conditionalStatement;
-	List<Step> trueExecuteStep;
-	List<Step> falseExecuteStep;
+    String type = "ConditionalStep";
+    String conditionalStatement;
+    List<Step> trueExecuteStep;
+    List<Step> falseExecuteStep;
 }

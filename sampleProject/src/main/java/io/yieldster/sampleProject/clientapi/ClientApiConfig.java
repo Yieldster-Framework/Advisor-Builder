@@ -19,6 +19,7 @@ public class ClientApiConfig {
 
         ApiClient apiClient = new ApiClient();
         apiClient.setBasePath(hostBasePath);
+        apiClient.setAccessToken(""); // add jwt token for authentication
         return apiClient;
     }
 

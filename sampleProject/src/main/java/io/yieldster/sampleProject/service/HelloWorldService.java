@@ -8,5 +8,5 @@ public interface HelloWorldService {
 
     SDKResponse getTokenPrice(String tokenAddress);
 
-    SDKResponse getVaultAssets(String vaultId);
+    SDKResponse getVaultAdvisorSetting(String vaultId);
 }
