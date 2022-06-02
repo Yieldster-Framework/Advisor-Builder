@@ -8,9 +8,9 @@ The ***service/Impl/HelloWorldImpl*** class in sampleProject can be used as refe
 _SdkServiceApi_ and _VaultServiceApi_ bean objects can be used to get details of a vault. 
 
 ```java
-//Sample function get assets supported by a vault
+//Sample function get the protocol address, the has invested currently
 
-vaultServiceApi.getAssetByVaultId(vaultId)
+vaultServiceApi.getInvestedProtocolByVaultId(vaultId)
 ```
 
 ```yaml
@@ -19,6 +19,10 @@ client:
   host:
     uri: url of backend host
 ```
+
+All the API's used to access the vault details are authenticated. The registered users can login to get the jwt token which can be used to configure the file in _src/main/java/com/ddc/yieldster/jsonbuilder/clientapi/ClientApiConfig.java_
+
+
 ### Sample advisor
 
 In the below sample advisor, the protocol address to which the vault is currently invested in is obtained using vaultServiceApi.getInvestedProtocolByVaultId(vaultId) function and an advisor instruction to invest the current investable assets (Ad) present in the vault into the current invested protocol. The function takes vaultId as an input parameter and returns the generated instruction JSON as string.
