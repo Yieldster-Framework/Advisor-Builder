@@ -2,11 +2,15 @@ package io.yieldster.sampleProject.service.impl;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.swagger.client.codegen.rest.api.SdkServiceApi;
 import com.swagger.client.codegen.rest.api.VaultServiceApi;
 import com.swagger.client.codegen.rest.model.SDKResponse;
+import io.yieldster.sampleProject.exception.JsonBuilderException;
+import io.yieldster.sampleProject.exception.JsonBuilderExceptionMessage;
 import io.yieldster.sampleProject.model.Advisor;
 import io.yieldster.sampleProject.model.ConditionalStep;
 import io.yieldster.sampleProject.model.MoveStep;
@@ -14,6 +18,9 @@ import io.yieldster.sampleProject.service.HelloWorldService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Map;
 
 
@@ -144,4 +151,78 @@ public class HelloWorldImpl implements HelloWorldService {
                 ))
                 .build();
     }
+
+
+    public String getConvexAdvisor(String vaultId) throws JsonBuilderException {
+        JsonNode vault = getVault(vaultId);
+        String vaultAddress = vault.get("vaultAddress").asText();
+        ArrayList<String> stakedPools = getStakedPools(vaultAddress);
+        BigDecimal totalUsdPrice = BigDecimal.ZERO;
+        for (String stakedPool : stakedPools) {
+            ArrayList<String> rewardTokens = getRewardTokens(stakedPool);
+            totalUsdPrice = totalUsdPrice.add(getRewardBalance(stakedPool).multiply(getUsdPrice()));
+        }
+        BigDecimal gas = getEstimatedGas();
+        if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
+
+        }
+        return null;
+    }
+
+    private BigDecimal getEstimatedGas() {
+        return null;
+    }
+
+    private BigDecimal getUsdPrice() {
+        return null;
+    }
+
+    private ArrayList<String> getStakedPools(String vaultAddress) throws JsonBuilderException {
+        try {
+            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(vaultAddress);
+            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
+            }
+            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), new TypeReference<ArrayList<String>>() {});
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
+    private ArrayList<String> getRewardTokens(String stakingContractAddress) throws JsonBuilderException {
+        try {
+            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(stakingContractAddress);
+            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
+            }
+            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), new TypeReference<ArrayList<String>>() {});
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
+    private BigDecimal getRewardBalance(String stakingContractAddress) throws JsonBuilderException {
+        try {
+            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(stakingContractAddress);
+            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
+            }
+            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), BigDecimal.class);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
+    private JsonNode getVault(String vaultId) throws JsonBuilderException {
+        try {
+            SDKResponse vaultResponseData = vaultServiceApi.getVaultById(vaultId);
+            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_VAULT_DATA.toString());
+            }
+            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), JsonNode.class);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
 }
