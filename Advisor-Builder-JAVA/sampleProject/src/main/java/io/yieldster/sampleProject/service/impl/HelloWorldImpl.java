@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.swagger.client.codegen.rest.api.HarvestExecutionServiceApi;
 import com.swagger.client.codegen.rest.api.SdkServiceApi;
 import com.swagger.client.codegen.rest.api.VaultServiceApi;
 import com.swagger.client.codegen.rest.model.SDKResponse;
@@ -14,14 +15,16 @@ import io.yieldster.sampleProject.exception.JsonBuilderExceptionMessage;
 import io.yieldster.sampleProject.model.Advisor;
 import io.yieldster.sampleProject.model.ConditionalStep;
 import io.yieldster.sampleProject.model.MoveStep;
+import io.yieldster.sampleProject.model.Step;
 import io.yieldster.sampleProject.service.HelloWorldService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -33,6 +36,9 @@ public class HelloWorldImpl implements HelloWorldService {
     private SdkServiceApi sdkServiceApi;
     @Autowired
     private VaultServiceApi vaultServiceApi;
+
+    @Autowired
+    private HarvestExecutionServiceApi harvestExecutionServiceApi;
 
     //Function to get NAV of the provided vault
     //@Param: vaultAddress:- Address of the required vault
@@ -153,37 +159,90 @@ public class HelloWorldImpl implements HelloWorldService {
     }
 
 
-    public String getConvexAdvisor(String vaultId) throws JsonBuilderException {
+    @Override
+    public String getHarvestAdvisor(String vaultId) throws JsonBuilderException, JsonProcessingException {
+        List<Step> stepList=new ArrayList<>();
         JsonNode vault = getVault(vaultId);
         String vaultAddress = vault.get("vaultAddress").asText();
         ArrayList<String> stakedPools = getStakedPools(vaultAddress);
-        BigDecimal totalUsdPrice = BigDecimal.ZERO;
         for (String stakedPool : stakedPools) {
-            ArrayList<String> rewardTokens = getRewardTokens(stakedPool);
-            totalUsdPrice = totalUsdPrice.add(getRewardBalance(stakedPool).multiply(getUsdPrice()));
+            List<String> rewardTokens = getRewardTokens(stakedPool);
+            Map<String, BigDecimal> rewardTokenBalanceMap = rewardTokens.stream().collect(Collectors.toMap(token -> token, value -> BigDecimal.ZERO, (elem1, elem12) -> elem1)); // Map of reward token and balance
+            for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
+                entry.setValue(getTokenBalance(entry.getKey(), vaultAddress)); // Finding balance for each and every rewardToken
+            }
+            BigDecimal totalUsdPrice = getRewardBalance(vaultAddress,stakedPool).multiply(getUsdPrice(stakedPool, rewardTokens));
+            BigDecimal gas = getEstimatedGas(vaultAddress, stakedPool);
+            if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
+                boolean harvestStatus = initiateHarvest(stakedPool, rewardTokens);
+                if(!harvestStatus)
+                    continue;
+                for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
+                    BigDecimal newBalance = getTokenBalance(entry.getKey(), vaultAddress);// Finding new balance for each and every rewardToken
+                    if(newBalance.compareTo(entry.getValue()) > 0){ // Check for positive difference
+                        if(entry.getKey().equalsIgnoreCase("cvx")){
+                            stepList.add(MoveStep.builder()
+                                    .fromAsset("cvx")
+                                    .toAsset("zeroaddress")
+                                    .build());
+                        } else if (entry.getKey().equalsIgnoreCase("crv")) {
+                            stepList.add(MoveStep.builder()
+                                    .fromAsset("crv")
+                                    .toAsset("zeroaddress")
+                                    .build());
+                        }else if (entry.getKey().equalsIgnoreCase("3crv")) {
+                            stepList.add(MoveStep.builder()
+                                    .fromAsset("3crv")
+                                    .toAsset("lptoken")
+                                    .build());
+                        }else if (entry.getKey().equalsIgnoreCase("cvxcrv")) {
+                            stepList.add(MoveStep.builder()
+                                    .fromAsset("cvxcrv")
+                                    .toAsset("zeroaddress")
+                                    .build());
+                        }else{
+                            stepList.add(MoveStep.builder()
+                                    .fromAsset(entry.getKey())
+                                    .toAsset("lptoken")
+                                    .build());
+                        }
+                    }
+                }
+            }
         }
-        BigDecimal gas = getEstimatedGas();
-        if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
+        Advisor advisor = Advisor.builder()
+                .advisorType("Harvest Advisor")
+                .steps(stepList).build();
+        return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
+    }
 
+    private boolean initiateHarvest(String stakedPool, List<String> rewardTokens) {
+        try {
+            SDKResponse response = null;
+            if (response == null || response.getData() == null) {
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
         }
+    }
+
+    private BigDecimal getEstimatedGas(String vaultAddress, String stakedPool) {
         return null;
     }
 
-    private BigDecimal getEstimatedGas() {
-        return null;
-    }
-
-    private BigDecimal getUsdPrice() {
+    private BigDecimal getUsdPrice(String stakedPool, List<String> rewardTokens) {
         return null;
     }
 
     private ArrayList<String> getStakedPools(String vaultAddress) throws JsonBuilderException {
         try {
-            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(vaultAddress);
-            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+            SDKResponse response = vaultServiceApi.getStakedPools(vaultAddress);
+            if (response == null || response.getData() == null) {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
             }
-            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), new TypeReference<ArrayList<String>>() {});
+            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {});
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
@@ -191,23 +250,39 @@ public class HelloWorldImpl implements HelloWorldService {
 
     private ArrayList<String> getRewardTokens(String stakingContractAddress) throws JsonBuilderException {
         try {
-            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(stakingContractAddress);
-            if (vaultResponseData == null || vaultResponseData.getData() == null) {
-                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
+            SDKResponse response = harvestExecutionServiceApi.getRewardContract(stakingContractAddress);
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_TOKENS.toString());
             }
-            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), new TypeReference<ArrayList<String>>() {});
+            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {});
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
     }
 
-    private BigDecimal getRewardBalance(String stakingContractAddress) throws JsonBuilderException {
+    private BigDecimal getRewardBalance(String vaultAddress, String stakingContractAddress) throws JsonBuilderException {
         try {
-            SDKResponse vaultResponseData = vaultServiceApi.getStakedPools(stakingContractAddress);
-            if (vaultResponseData == null || vaultResponseData.getData() == null) {
-                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
+            SDKResponse response = harvestExecutionServiceApi.getRewardAmount(vaultAddress, stakingContractAddress);
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
             }
-            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), BigDecimal.class);
+            return OBJECT_MAPPER.convertValue(response.getData(), BigDecimal.class);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
+    private BigDecimal getTokenBalance(String tokenAddress, String vaultAddress) throws JsonBuilderException {
+        try {
+            SDKResponse sdkResponse = sdkServiceApi.getTokenBalance1(vaultAddress, tokenAddress, null, null);
+            if (sdkResponse == null)
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
+            if (sdkResponse.getData() == null)
+                throw new JsonBuilderException(sdkResponse.getMessage() != null ? sdkResponse.getMessage() : JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
+            SDKResponse responseData = sdkServiceApi.getTokenDecimal(tokenAddress);
+            double decimal = OBJECT_MAPPER.convertValue(responseData.getData(), JsonNode.class).asDouble();
+            double tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("Token Balance").asDouble();
+            return BigDecimal.valueOf(tokenBalance / Math.pow(10, decimal));
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
@@ -215,14 +290,13 @@ public class HelloWorldImpl implements HelloWorldService {
 
     private JsonNode getVault(String vaultId) throws JsonBuilderException {
         try {
-            SDKResponse vaultResponseData = vaultServiceApi.getVaultById(vaultId);
-            if (vaultResponseData == null || vaultResponseData.getData() == null) {
+            SDKResponse response = vaultServiceApi.getVaultById(vaultId);
+            if (response == null || response.getData() == null) {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_VAULT_DATA.toString());
             }
-            return OBJECT_MAPPER.convertValue(vaultResponseData.getData(), JsonNode.class);
+            return OBJECT_MAPPER.convertValue(response.getData(), JsonNode.class);
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
     }
-
 }

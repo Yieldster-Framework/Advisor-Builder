@@ -2,12 +2,10 @@ package io.yieldster.sampleProject.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.swagger.client.codegen.rest.model.SDKResponse;
+import io.yieldster.sampleProject.exception.JsonBuilderException;
 import io.yieldster.sampleProject.service.HelloWorldService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/")
@@ -18,6 +16,11 @@ public class HelloWorldController {
     @GetMapping("/getJson")
     public String getJson() throws JsonProcessingException {
         return helloWorldService.generateMaximizeAssetReturn();
+    }
+
+    @GetMapping("/harvest-advisor")
+    public String harvestAdvisor(@RequestParam String vaultId) throws JsonProcessingException, JsonBuilderException {
+        return helloWorldService.getHarvestAdvisor(vaultId);
     }
 
     @GetMapping("/tokenPrice")
