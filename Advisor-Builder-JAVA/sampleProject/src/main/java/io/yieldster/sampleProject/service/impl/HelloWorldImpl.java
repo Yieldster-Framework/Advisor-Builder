@@ -11,9 +11,7 @@ import com.swagger.client.codegen.rest.api.VaultServiceApi;
 import com.swagger.client.codegen.rest.model.SDKResponse;
 import io.yieldster.sampleProject.exception.JsonBuilderException;
 import io.yieldster.sampleProject.exception.JsonBuilderExceptionMessage;
-import io.yieldster.sampleProject.model.Advisor;
-import io.yieldster.sampleProject.model.ConditionalStep;
-import io.yieldster.sampleProject.model.MoveStep;
+import io.yieldster.sampleProject.model.*;
 import io.yieldster.sampleProject.service.HelloWorldService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 
@@ -164,6 +163,60 @@ public class HelloWorldImpl implements HelloWorldService {
         }
         BigDecimal gas = getEstimatedGas();
         if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
+            /*E. i Find the balance of these reward tokens in the vault.*/
+            ArrayList<String> rewardTokenBalance=getRewardTokenBalance(vaultAddress,getTokenAddress());
+            /*E. ii Initiate harvest*/
+            HarvestStep harvestStep=HarvestStep.builder()
+                    .stakingContract(getStakingContractAddr())
+                    .returnTokens(rewardTokenBalance)
+                    .build();
+            /*f. Check the balance of rewards of these tokens*/
+            BigDecimal tokenRewardBalance= getTokenRewardBalance();
+            List<Step> stepList=new ArrayList<Step>();
+            /*steps from g to k are as below*/
+            if(getAfterCVXBalance().compareTo(getBeforeCVXBalance())>=0){
+                MoveStep moveCVXToZeroAddr = MoveStep.builder()
+                        .fromAsset("Ad")
+                        .toAsset("APInv")
+                        .build();
+                stepList.add(moveCVXToZeroAddr);
+            }
+            if(getAfterCRVBalance().compareTo(getBeforeCRVBalance())>=0){
+                MoveStep moveCRVToCVXCRV = MoveStep.builder()
+                        .fromAsset("Ad")
+                        .toAsset("APInv")
+                        .build();
+
+                MoveStep moveCVXCRVToZeroAddr = MoveStep.builder()
+                        .fromAsset("Ad")
+                        .toAsset("APInv")
+                        .build();
+                stepList.add(moveCRVToCVXCRV);
+                stepList.add(moveCVXCRVToZeroAddr);
+            }
+            if(getAfter3CRVBalance().compareTo(getBefore3CRVBalance())>=0){
+                MoveStep move3CRVToIPTOKEN = MoveStep.builder()
+                        .fromAsset("Ad")
+                        .toAsset("APInv")
+                        .build();
+                stepList.add(move3CRVToIPTOKEN);
+            }
+            if(getAfterCVXCRVBalance().compareTo(getBeforeCVXCRVBalance())>=0){
+                MoveStep moveCVXCRVToZeroAddr = MoveStep.builder()
+                        .fromAsset("Ad")
+                        .toAsset("APInv")
+                        .build();
+                stepList.add(moveCVXCRVToZeroAddr);
+            }
+            if(!rewardTokenBalance.contains("CVX") || !rewardTokenBalance.contains("CRV") || !rewardTokenBalance.contains("3CRV") || !rewardTokenBalance.contains("CVXCRV")){
+                if(getAfterOtherAsset().compareTo(getBeforeOtherAsset())>=0){
+                    MoveStep moveOTHERToIPTOKEN = MoveStep.builder()
+                            .fromAsset("Ad")
+                            .toAsset("APInv")
+                            .build();
+                    stepList.add(moveOTHERToIPTOKEN);
+                }
+            }
 
         }
         return null;
@@ -225,4 +278,50 @@ public class HelloWorldImpl implements HelloWorldService {
         }
     }
 
+    private ArrayList<String > getRewardTokenBalance(String vaultAddress, String tokenAddress){
+        return null;
+    }
+    private String getTokenAddress(){
+        return null;
+    }
+
+    private BigDecimal getTokenRewardBalance(){
+        return null;
+    }
+
+    private String getStakingContractAddr(){
+        return null;
+    }
+
+    private BigDecimal getBeforeCVXBalance(){
+        return null;
+    }
+
+    private BigDecimal getAfterCVXBalance(){
+        return null;
+    }
+
+    private BigDecimal getBeforeCRVBalance(){
+        return null;
+    }
+
+    private BigDecimal getAfterCRVBalance(){
+        return null;
+    }
+
+    private BigDecimal getBefore3CRVBalance(){ return null;}
+
+    private BigDecimal getAfter3CRVBalance(){ return null;}
+
+    private BigDecimal getBeforeCVXCRVBalance(){
+        return null;
+    }
+
+    private BigDecimal getAfterCVXCRVBalance(){
+        return null;
+    }
+
+    private BigDecimal getAfterOtherAsset(){return null;}
+
+    private BigDecimal getBeforeOtherAsset(){return null;}
 }
