@@ -60,7 +60,7 @@ public class HelloWorldImpl implements HelloWorldService {
     //@Param: date( DD-MM-YYYY HH:MM:SS format) / timestamp. if null uses current blockNumber by default
     //@Param: boolean:- true if provided above param is date; false if the provided param is timestamp
     public SDKResponse getTokenPrice(String tokenAddress) {
-        return sdkServiceApi.getTokenPrice1(tokenAddress, false, null, null);
+        return sdkServiceApi.getTokenPrice(tokenAddress, false, null, null);
     }
 
     /*
@@ -70,8 +70,8 @@ public class HelloWorldImpl implements HelloWorldService {
     public String generateMaximizeAssetReturn() throws JsonProcessingException {
 
         String yvCurve_FRAX = "0xB4AdA607B9d6b2c9Ee07A275e9616B84AC560139";
-        SDKResponse currentTokenData = sdkServiceApi.getTokenPrice1(yvCurve_FRAX, false, null, null);
-        SDKResponse previousTokenData = sdkServiceApi.getTokenPrice1(yvCurve_FRAX, false, "1655292773", false);
+        SDKResponse currentTokenData = sdkServiceApi.getTokenPrice(yvCurve_FRAX, false, null, null);
+        SDKResponse previousTokenData = sdkServiceApi.getTokenPrice(yvCurve_FRAX, false, "1655292773", false);
         if (currentTokenData.getStatusCode() == 200 && previousTokenData.getStatusCode() == 200) {
             Map<String, Object> currentTokenDataMap = (Map<String, Object>) currentTokenData.getData();
             Map<String, Object> previousTokenDataMap = (Map<String, Object>) previousTokenData.getData();
@@ -171,6 +171,7 @@ public class HelloWorldImpl implements HelloWorldService {
         String vaultAddress = vault.get("vaultAddress").asText();
         ArrayList<String> stakedPools = getStakedPools(vaultAddress);
         for (String stakedPool : stakedPools) {
+            String lpToken = getLpToken(stakedPool);
             List<String> rewardTokens = getRewardTokens(stakedPool);
             Map<String, BigDecimal> rewardTokenBalanceMap = rewardTokens.stream().collect(Collectors.toMap(token -> token, value -> BigDecimal.ZERO, (elem1, elem12) -> elem1)); // Map of reward token and balance
             for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
@@ -179,7 +180,7 @@ public class HelloWorldImpl implements HelloWorldService {
             BigDecimal totalUsdPrice = getRewardBalance(vaultAddress,stakedPool).multiply(getUsdPrice(stakedPool, rewardTokens));
             BigDecimal gas = getEstimatedGas(vaultAddress, stakedPool);
             if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
-                boolean harvestStatus = initiateHarvest(stakedPool, rewardTokens);
+                boolean harvestStatus = initiateHarvest(vaultAddress, stakedPool, rewardTokens);
                 if(!harvestStatus)
                     continue;
                 for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
@@ -203,7 +204,7 @@ public class HelloWorldImpl implements HelloWorldService {
                                     // 3crv
                                     stepList.add(MoveStep.builder()
                                             .fromAsset(_3crvToken)
-                                            .toAsset("lptoken")
+                                            .toAsset(lpToken)
                                             .build());
                                 }else {
                                     if (entry.getKey().equalsIgnoreCase(cvxcrvToken)) {
@@ -216,7 +217,7 @@ public class HelloWorldImpl implements HelloWorldService {
                                         // other tokens
                                         stepList.add(MoveStep.builder()
                                                 .fromAsset(entry.getKey())
-                                                .toAsset("lptoken")
+                                                .toAsset(lpToken)
                                                 .build());
                                     }
                                 }
@@ -232,9 +233,9 @@ public class HelloWorldImpl implements HelloWorldService {
         return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
     }
 
-    private boolean initiateHarvest(String stakedPool, List<String> rewardTokens) {
+    private boolean initiateHarvest(String vaultAddress, String stakedPool, List<String> rewardTokens) {
         try {
-            SDKResponse response = null;
+            SDKResponse response = harvestExecutionServiceApi.harvestReward(vaultAddress, stakedPool, rewardTokens);
             if (response == null || response.getData() == null) {
                 return false;
             }
@@ -244,13 +245,33 @@ public class HelloWorldImpl implements HelloWorldService {
         }
     }
 
-    private BigDecimal getEstimatedGas(String vaultAddress, String stakedPool) {
-        return null;
+    private BigDecimal getEstimatedGas(String vaultAddress, String stakedPool) throws JsonBuilderException {
+        try {
+            SDKResponse response = harvestExecutionServiceApi.getHarvestGasEstimate(stakedPool, vaultAddress);
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_PROCESS.toString());
+            }
+            return OBJECT_MAPPER.convertValue(response.getData(), BigDecimal.class);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+    }
+
+    private String getLpToken(String stakedPool) throws JsonBuilderException {
+        try {
+            SDKResponse response = harvestExecutionServiceApi.getStakedAssetOfAPool(stakedPool);
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_PROCESS.toString());
+            }
+            return OBJECT_MAPPER.convertValue(response.getData(), String.class);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
     }
 
     private BigDecimal getUsdPrice(String stakedPool, List<String> rewardTokens) throws JsonBuilderException {
         try {
-            SDKResponse response = sdkServiceApi.getTokenPrice1("0xd533a949740bb3306d119cc777fa900ba034cd52", false, null, null); // CRV price
+            SDKResponse response = sdkServiceApi.getTokenPrice("0xd533a949740bb3306d119cc777fa900ba034cd52", false, null, null); // CRV price
             if (response == null || response.getData() == null) {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_PRICE.toString());
             }
@@ -299,15 +320,13 @@ public class HelloWorldImpl implements HelloWorldService {
 
     private BigDecimal getTokenBalance(String tokenAddress, String vaultAddress) throws JsonBuilderException {
         try {
-            SDKResponse sdkResponse = sdkServiceApi.getTokenBalance1(vaultAddress, tokenAddress, null, null);
+            SDKResponse sdkResponse = sdkServiceApi.getTokenBalance(vaultAddress, tokenAddress, null, null);
             if (sdkResponse == null)
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
             if (sdkResponse.getData() == null)
                 throw new JsonBuilderException(sdkResponse.getMessage() != null ? sdkResponse.getMessage() : JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
-            SDKResponse responseData = sdkServiceApi.getTokenDecimal(tokenAddress);
-            double decimal = OBJECT_MAPPER.convertValue(responseData.getData(), JsonNode.class).asDouble();
             double tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("Token Balance").asDouble();
-            return BigDecimal.valueOf(tokenBalance / Math.pow(10, decimal));
+            return BigDecimal.valueOf(tokenBalance);
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
