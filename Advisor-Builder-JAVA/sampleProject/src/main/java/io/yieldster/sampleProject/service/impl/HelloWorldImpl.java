@@ -161,6 +161,11 @@ public class HelloWorldImpl implements HelloWorldService {
 
     @Override
     public String getHarvestAdvisor(String vaultId) throws JsonBuilderException, JsonProcessingException {
+        String zeroToken = "0x0000000000000000000000000000000000000000";
+        String cvxToken = "0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b";
+        String crvToken = "0xd533a949740bb3306d119cc777fa900ba034cd52";
+        String _3crvToken = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490";
+        String cvxcrvToken = "0x62b9c7356a2dc64a1969e19c23e4f579f9810aa7";
         List<Step> stepList=new ArrayList<>();
         JsonNode vault = getVault(vaultId);
         String vaultAddress = vault.get("vaultAddress").asText();
@@ -180,31 +185,42 @@ public class HelloWorldImpl implements HelloWorldService {
                 for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
                     BigDecimal newBalance = getTokenBalance(entry.getKey(), vaultAddress);// Finding new balance for each and every rewardToken
                     if(newBalance.compareTo(entry.getValue()) > 0){ // Check for positive difference
-                        if(entry.getKey().equalsIgnoreCase("cvx")){
+                        if(entry.getKey().equalsIgnoreCase(cvxToken)){
+                            // cvx
                             stepList.add(MoveStep.builder()
-                                    .fromAsset("cvx")
-                                    .toAsset("zeroaddress")
+                                    .fromAsset(cvxToken)
+                                    .toAsset(zeroToken)
                                     .build());
-                        } else if (entry.getKey().equalsIgnoreCase("crv")) {
-                            stepList.add(MoveStep.builder()
-                                    .fromAsset("crv")
-                                    .toAsset("zeroaddress")
-                                    .build());
-                        }else if (entry.getKey().equalsIgnoreCase("3crv")) {
-                            stepList.add(MoveStep.builder()
-                                    .fromAsset("3crv")
-                                    .toAsset("lptoken")
-                                    .build());
-                        }else if (entry.getKey().equalsIgnoreCase("cvxcrv")) {
-                            stepList.add(MoveStep.builder()
-                                    .fromAsset("cvxcrv")
-                                    .toAsset("zeroaddress")
-                                    .build());
-                        }else{
-                            stepList.add(MoveStep.builder()
-                                    .fromAsset(entry.getKey())
-                                    .toAsset("lptoken")
-                                    .build());
+                        } else {
+                            if (entry.getKey().equalsIgnoreCase(crvToken)) {
+                                // crv
+                                stepList.add(MoveStep.builder()
+                                        .fromAsset(crvToken)
+                                        .toAsset(zeroToken)
+                                        .build());
+                            }else {
+                                if (entry.getKey().equalsIgnoreCase(_3crvToken)) {
+                                    // 3crv
+                                    stepList.add(MoveStep.builder()
+                                            .fromAsset(_3crvToken)
+                                            .toAsset("lptoken")
+                                            .build());
+                                }else {
+                                    if (entry.getKey().equalsIgnoreCase(cvxcrvToken)) {
+                                        // cvxcrv
+                                        stepList.add(MoveStep.builder()
+                                                .fromAsset(cvxcrvToken)
+                                                .toAsset(zeroToken)
+                                                .build());
+                                    }else{
+                                        // other tokens
+                                        stepList.add(MoveStep.builder()
+                                                .fromAsset(entry.getKey())
+                                                .toAsset("lptoken")
+                                                .build());
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -232,8 +248,17 @@ public class HelloWorldImpl implements HelloWorldService {
         return null;
     }
 
-    private BigDecimal getUsdPrice(String stakedPool, List<String> rewardTokens) {
-        return null;
+    private BigDecimal getUsdPrice(String stakedPool, List<String> rewardTokens) throws JsonBuilderException {
+        try {
+            SDKResponse response = sdkServiceApi.getTokenPrice1("0xd533a949740bb3306d119cc777fa900ba034cd52", false, null, null); // CRV price
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_PRICE.toString());
+            }
+            double tokenBalance = OBJECT_MAPPER.convertValue(response.getData(), JsonNode.class).get("TokenPrice").asDouble();
+            return BigDecimal.valueOf(tokenBalance);
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
     }
 
     private ArrayList<String> getStakedPools(String vaultAddress) throws JsonBuilderException {
