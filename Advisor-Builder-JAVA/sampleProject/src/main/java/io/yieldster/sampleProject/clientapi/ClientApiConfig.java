@@ -1,7 +1,8 @@
 package io.yieldster.sampleProject.clientapi;
 
 
-import com.swagger.client.codegen.rest.api.PathExecutionServiceApi;
+//import com.swagger.client.codegen.rest.api.PathExecutionServiceApi;
+import com.swagger.client.codegen.rest.api.HarvestExecutionServiceApi;
 import com.swagger.client.codegen.rest.api.SdkServiceApi;
 import com.swagger.client.codegen.rest.api.VaultServiceApi;
 import com.swagger.client.codegen.rest.invoker.ApiClient;
@@ -23,10 +24,10 @@ public class ClientApiConfig {
         return apiClient;
     }
 
-    @Bean
-    public PathExecutionServiceApi pathExecutionServiceApi() {
-        return new PathExecutionServiceApi(apiClient());
-    }
+//    @Bean
+//    public PathExecutionServiceApi pathExecutionServiceApi() {
+//        return new PathExecutionServiceApi(apiClient());
+//    }
 
     @Bean
     public SdkServiceApi sdkServiceApi() {
@@ -37,4 +38,7 @@ public class ClientApiConfig {
     public VaultServiceApi vaultServiceApi() {
         return new VaultServiceApi(apiClient());
     }
+
+    @Bean
+    public HarvestExecutionServiceApi harvestExecutionServiceApi() { return new HarvestExecutionServiceApi(apiClient()); }
 }

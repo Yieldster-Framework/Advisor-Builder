@@ -3,4 +3,4 @@ server:
 
 client:
   host:
-    uri: http://52.203.100.234:8050
+    uri: http://localhost:8050

@@ -191,13 +191,20 @@ public class HelloWorldImpl implements HelloWorldService {
                             stepList.add(MoveStep.builder()
                                     .fromAsset(cvxToken)
                                     .toAsset(zeroToken)
+                                    .amount(newBalance.subtract(entry.getValue()).doubleValue())
                                     .build());
                         } else {
                             if (entry.getKey().equalsIgnoreCase(crvToken)) {
                                 // crv
                                 stepList.add(MoveStep.builder()
                                         .fromAsset(crvToken)
+                                        .toAsset(cvxcrvToken)
+                                        .amount(newBalance.subtract(entry.getValue()).doubleValue())
+                                        .build());
+                                stepList.add(MoveStep.builder()
+                                        .fromAsset(cvxcrvToken)
                                         .toAsset(zeroToken)
+                                        .amount(newBalance.subtract(entry.getValue()).doubleValue())
                                         .build());
                             }else {
                                 if (entry.getKey().equalsIgnoreCase(_3crvToken)) {
@@ -205,6 +212,7 @@ public class HelloWorldImpl implements HelloWorldService {
                                     stepList.add(MoveStep.builder()
                                             .fromAsset(_3crvToken)
                                             .toAsset(lpToken)
+                                            .amount(newBalance.subtract(entry.getValue()).doubleValue())
                                             .build());
                                 }else {
                                     if (entry.getKey().equalsIgnoreCase(cvxcrvToken)) {
@@ -212,12 +220,14 @@ public class HelloWorldImpl implements HelloWorldService {
                                         stepList.add(MoveStep.builder()
                                                 .fromAsset(cvxcrvToken)
                                                 .toAsset(zeroToken)
+                                                .amount(newBalance.subtract(entry.getValue()).doubleValue())
                                                 .build());
                                     }else{
                                         // other tokens
                                         stepList.add(MoveStep.builder()
                                                 .fromAsset(entry.getKey())
                                                 .toAsset(lpToken)
+                                                .amount(newBalance.subtract(entry.getValue()).doubleValue())
                                                 .build());
                                     }
                                 }
@@ -325,7 +335,7 @@ public class HelloWorldImpl implements HelloWorldService {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
             if (sdkResponse.getData() == null)
                 throw new JsonBuilderException(sdkResponse.getMessage() != null ? sdkResponse.getMessage() : JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
-            double tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("Token Balance").asDouble();
+            double tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("TokenBalance").asDouble();
             return BigDecimal.valueOf(tokenBalance);
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
