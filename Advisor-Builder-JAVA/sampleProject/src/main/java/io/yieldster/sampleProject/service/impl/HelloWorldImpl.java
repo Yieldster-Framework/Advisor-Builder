@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -166,12 +167,18 @@ public class HelloWorldImpl implements HelloWorldService {
         String crvToken = "0xd533a949740bb3306d119cc777fa900ba034cd52";
         String _3crvToken = "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490";
         String cvxcrvToken = "0x62b9c7356a2dc64a1969e19c23e4f579f9810aa7";
-        List<Step> stepList=new ArrayList<>();
+        String convexRewardContract = "0xCF50b810E57Ac33B91dCF525C6ddd9881B139332";
+        String cvxCrvRewardContract = "0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e";
+        List<MoveStep> stepList=new ArrayList<>();
         JsonNode vault = getVault(vaultId);
         String vaultAddress = vault.get("vaultAddress").asText();
         ArrayList<String> stakedPools = getStakedPools(vaultAddress);
+        String lpToken = getBasePoolFromStakedPoolList(stakedPools);
         for (String stakedPool : stakedPools) {
-            String lpToken = getLpToken(stakedPool);
+            if(!stakedPool.equalsIgnoreCase(convexRewardContract) && !stakedPool.equalsIgnoreCase(cvxCrvRewardContract))
+                lpToken = getLpToken(stakedPool);
+            if(lpToken == null)
+                lpToken = getLpToken(stakedPool);
             List<String> rewardTokens = getRewardTokens(stakedPool);
             Map<String, BigDecimal> rewardTokenBalanceMap = rewardTokens.stream().collect(Collectors.toMap(token -> token, value -> BigDecimal.ZERO, (elem1, elem12) -> elem1)); // Map of reward token and balance
             for (Map.Entry<String, BigDecimal> entry : rewardTokenBalanceMap.entrySet()) {
@@ -237,9 +244,13 @@ public class HelloWorldImpl implements HelloWorldService {
                 }
             }
         }
+        LinkedHashMap<String, MoveStep> moveStepMap = stepList.stream().collect(Collectors.toMap(moveStep -> moveStep.getToAsset() + moveStep.getFromAsset(),
+                moveStep -> moveStep,
+                (v1, v2) -> v2,
+                LinkedHashMap::new));
         Advisor advisor = Advisor.builder()
                 .advisorType("Harvest Advisor")
-                .steps(stepList).build();
+                .steps(new ArrayList<>(moveStepMap.values())).build();
         return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
     }
 
@@ -302,6 +313,20 @@ public class HelloWorldImpl implements HelloWorldService {
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
+    }
+
+    private String getBasePoolFromStakedPoolList(ArrayList<String> stakedPool) throws JsonBuilderException {
+        String convexRewardContract = "0xCF50b810E57Ac33B91dCF525C6ddd9881B139332";
+        String cvxCrvRewardContract = "0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e";
+        try{
+            for(Integer i =0;i<stakedPool.size();i++){
+                if(!stakedPool.get(i).equalsIgnoreCase(convexRewardContract) && !stakedPool.get(i).equalsIgnoreCase(cvxCrvRewardContract))
+                    return getLpToken(stakedPool.get(i));
+            }
+        }catch (Exception e){
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
+        return null;
     }
 
     private ArrayList<String> getRewardTokens(String stakingContractAddress) throws JsonBuilderException {
