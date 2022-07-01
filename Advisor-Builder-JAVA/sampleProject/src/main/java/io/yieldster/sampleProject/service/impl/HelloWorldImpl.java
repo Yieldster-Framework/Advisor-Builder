@@ -174,6 +174,7 @@ public class HelloWorldImpl implements HelloWorldService {
         String vaultAddress = vault.get("vaultAddress").asText();
         ArrayList<String> stakedPools = getStakedPools(vaultAddress);
         String lpToken = getBasePoolFromStakedPoolList(stakedPools);
+        Double crvAmount = 0D;
         for (String stakedPool : stakedPools) {
             if(!stakedPool.equalsIgnoreCase(convexRewardContract) && !stakedPool.equalsIgnoreCase(cvxCrvRewardContract))
                 lpToken = getLpToken(stakedPool);
@@ -203,16 +204,13 @@ public class HelloWorldImpl implements HelloWorldService {
                         } else {
                             if (entry.getKey().equalsIgnoreCase(crvToken)) {
                                 // crv
+                                crvAmount = newBalance.subtract(entry.getValue()).doubleValue();
                                 stepList.add(MoveStep.builder()
                                         .fromAsset(crvToken)
                                         .toAsset(cvxcrvToken)
-                                        .amount(newBalance.subtract(entry.getValue()).doubleValue())
+                                        .amount(crvAmount)
                                         .build());
-                                stepList.add(MoveStep.builder()
-                                        .fromAsset(cvxcrvToken)
-                                        .toAsset(zeroToken)
-                                        .amount(newBalance.subtract(entry.getValue()).doubleValue())
-                                        .build());
+
                             }else {
                                 if (entry.getKey().equalsIgnoreCase(_3crvToken)) {
                                     // 3crv
@@ -248,9 +246,16 @@ public class HelloWorldImpl implements HelloWorldService {
                 moveStep -> moveStep,
                 (v1, v2) -> v2,
                 LinkedHashMap::new));
+        List<Step> stepListNew = new ArrayList<>(moveStepMap.values());
+        if(crvAmount>0)
+            stepListNew.add(MoveStep.builder()
+                    .fromAsset(cvxcrvToken)
+                    .toAsset(zeroToken)
+                    .amount(crvAmount)
+                    .build());
         Advisor advisor = Advisor.builder()
                 .advisorType("Harvest Advisor")
-                .steps(new ArrayList<>(moveStepMap.values())).build();
+                .steps(stepListNew).build();
         return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
     }
 
