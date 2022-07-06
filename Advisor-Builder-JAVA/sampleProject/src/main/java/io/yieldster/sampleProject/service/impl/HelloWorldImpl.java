@@ -158,7 +158,7 @@ public class HelloWorldImpl implements HelloWorldService {
     }
 
     @Override
-    public String getHarvestAdvisor(String vaultId) throws  JsonBuilderException, JsonProcessingException {
+    public String getHarvestAdvisor(String vaultId) throws JsonBuilderException, JsonProcessingException {
         String zeroToken = "0x0000000000000000000000000000000000000000";
         String cvxToken = "0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b";
         String crvToken = "0xd533a949740bb3306d119cc777fa900ba034cd52";
@@ -167,98 +167,88 @@ public class HelloWorldImpl implements HelloWorldService {
         String convexRewardContract = "0xCF50b810E57Ac33B91dCF525C6ddd9881B139332";
         String cvxCrvRewardContract = "0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e";
         JsonNode vault = getVault(vaultId);
+        JsonNode vaultSettings = vault.get("vaultAdvisorSetting");
+        Double gasLimit = vaultSettings.get("gasLimit").asDouble();
         String vaultAddress = vault.get("vaultAddress").asText();
         ArrayList<String> stakedPools = getStakedPools(vaultAddress);
-        List<MoveStep> stepList=new ArrayList<>();
+        List<Step> stepList = new ArrayList<>();
         Long crvAmount = 0l;
+        Long cvxcrvAmount = 0l;
         List<String> rewardTokenList = getFullRewardTokens(stakedPools);
-        Map<String, Long> rewardTokenBalanceMap = rewardTokenList.stream().collect(Collectors.toMap(token -> token, value -> 0l, (elem1, elem12) -> elem1)); // Map of reward token and balance
-        for (Map.Entry<String, Long> entry : rewardTokenBalanceMap.entrySet()) {
-            entry.setValue(getTokenBalanceFromString(entry.getKey(), vaultAddress)); // Finding balance for each and every rewardToken
-        }
-        String lpToken = getBasePoolFromStakedPoolList(stakedPools,vaultAddress);
-        for(String stakedPool : stakedPools){
-            if(lpToken == null)
+        String lpToken = getBasePoolFromStakedPoolList(stakedPools, vaultAddress);
+        for (String stakedPool : stakedPools) {
+            if (lpToken == null)
                 lpToken = getLpToken(stakedPool);
-            BigDecimal totalUsdPrice = getRewardBalance(vaultAddress,stakedPool).multiply(getUsdPrice(stakedPool, rewardTokenList));
+            BigDecimal totalUsdPrice = getRewardBalance(vaultAddress, stakedPool).multiply(getUsdPrice(stakedPool, rewardTokenList));
             BigDecimal gas = getEstimatedGas(vaultAddress, stakedPool);
-            if(gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(5).divide(BigDecimal.valueOf(100)))) <= 0){
+            if (gas.compareTo(totalUsdPrice.multiply(BigDecimal.valueOf(gasLimit).divide(BigDecimal.valueOf(100)))) <= 0) {
                 List<String> rewardTokensOfPool = getRewardTokens(stakedPool);
-                boolean harvestStatus = initiateHarvest(vaultAddress, stakedPool, rewardTokensOfPool);
-                if(!harvestStatus)
-                    continue;
-                for (Map.Entry<String, Long> entry : rewardTokenBalanceMap.entrySet()) {
-                    Long newBalance = getTokenBalanceFromString(entry.getKey(), vaultAddress);// Finding new balance for each and every rewardToken
-                    if(newBalance.compareTo(entry.getValue()) > 0){ // Check for positive difference
-                        if(entry.getKey().equalsIgnoreCase(cvxToken)){
-                            // cvx
-                            stepList.add(MoveStep.builder()
-                                    .fromAsset(cvxToken)
-                                    .toAsset(zeroToken)
-                                    .amount(newBalance -(entry.getValue()))
-                                    .build());
-                        } else {
-                            if (entry.getKey().equalsIgnoreCase(crvToken)) {
-                                // crv
-                                crvAmount = newBalance -(entry.getValue());
-                                stepList.add(MoveStep.builder()
-                                        .fromAsset(crvToken)
-                                        .toAsset(cvxcrvToken)
-                                        .amount(crvAmount)
-                                        .build());
-
-                            }else {
-                                if (entry.getKey().equalsIgnoreCase(_3crvToken)) {
-                                    // 3crv
-                                    stepList.add(MoveStep.builder()
-                                            .fromAsset(_3crvToken)
-                                            .toAsset(lpToken)
-                                            .amount(newBalance -(entry.getValue()))
-                                            .build());
-                                }else {
-                                    if (entry.getKey().equalsIgnoreCase(cvxcrvToken)) {
-                                        // cvxcrv
-                                        stepList.add(MoveStep.builder()
-                                                .fromAsset(cvxcrvToken)
-                                                .toAsset(zeroToken)
-                                                .amount(newBalance -(entry.getValue()))
-                                                .build());
-                                    }else{
-                                        // other tokens
-                                        stepList.add(MoveStep.builder()
-                                                .fromAsset(entry.getKey())
-                                                .toAsset(lpToken)
-                                                .amount(newBalance -(entry.getValue()))
-                                                .build());
-                                    }
-                                }
-                            }
-                        }
+                initiateHarvest(vaultAddress, stakedPool, rewardTokensOfPool);
+            }
+            for (String asset : getAssetList(vaultAddress)) {
+                Long assetBalance = getTokenBalanceFromString(asset, vaultAddress);// Finding new balance for each and every rewardToken
+                if (assetBalance > 0) { // Check for positive difference
+                    if (asset.equalsIgnoreCase(cvxToken)) {
+                        stepList.add(MoveStep.builder()
+                                .fromAsset(cvxToken)
+                                .toAsset(zeroToken)
+                                .amount(assetBalance)
+                                .build());
+                    } else if (asset.equalsIgnoreCase(crvToken)) {
+                        crvAmount = assetBalance;
+                        stepList.add(MoveStep.builder()
+                                .fromAsset(crvToken)
+                                .toAsset(cvxcrvToken)
+                                .amount(crvAmount)
+                                .build());
+                    } else if (asset.equalsIgnoreCase(_3crvToken)) {
+                        stepList.add(MoveStep.builder()
+                                .fromAsset(_3crvToken)
+                                .toAsset(lpToken)
+                                .amount(assetBalance)
+                                .build());
+                    } else if (asset.equalsIgnoreCase(cvxcrvToken)) {
+                        cvxcrvAmount = assetBalance;
+                    } else if (!asset.equalsIgnoreCase(zeroToken)) {
+                        stepList.add(MoveStep.builder()
+                                .fromAsset(asset)
+                                .toAsset(lpToken)
+                                .amount(assetBalance)
+                                .build());
                     }
                 }
             }
-
+            if (cvxcrvAmount + crvAmount > 0) {
+                stepList.add(MoveStep.builder()
+                        .fromAsset(cvxcrvToken)
+                        .toAsset(zeroToken)
+                        .amount(cvxcrvAmount + crvAmount)
+                        .build());
+            }
         }
-        LinkedHashMap<String, MoveStep> moveStepMap = stepList.stream().collect(Collectors.toMap(moveStep -> moveStep.getToAsset() + moveStep.getFromAsset(),
-                moveStep -> moveStep,
-                (v1, v2) -> v2,
-                LinkedHashMap::new));
-        List<Step> stepListNew = new ArrayList<>(moveStepMap.values());
-        if(crvAmount != 0l)
-            stepListNew.add(MoveStep.builder()
-                    .fromAsset(cvxcrvToken)
-                    .toAsset(zeroToken)
-                    .amount(crvAmount)
-                    .build());
         Advisor advisor = Advisor.builder()
                 .advisorType("Harvest Advisor")
-                .steps(stepListNew).build();
+                .steps(stepList).build();
         return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(advisor);
+    }
+
+    private List<String> getAssetList(String vaultAddress) throws JsonBuilderException {
+        try {
+            SDKResponse response = sdkServiceApi.getVaultAssets(vaultAddress);
+            if (response == null || response.getData() == null) {
+                throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_PROCESS.toString());
+            }
+            List<JsonNode> data = OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<List<JsonNode>>() {
+            });
+            return data.stream().map(jsonNode -> jsonNode.get("value").asText()).collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new JsonBuilderException(e.getMessage(), e);
+        }
     }
 
     public List<String> getFullRewardTokens(ArrayList<String> stakedPools) throws JsonBuilderException {
         HashSet<String> rewardTokenSet = new HashSet<>();
-        for(Integer i=0;i<stakedPools.size();i++){
+        for (Integer i = 0; i < stakedPools.size(); i++) {
             List<String> rewardTokens = getRewardTokens(stakedPools.get(i));
             rewardTokenSet.addAll(rewardTokens);
         }
@@ -367,7 +357,7 @@ public class HelloWorldImpl implements HelloWorldService {
     private boolean initiateHarvest(String vaultAddress, String stakedPool, List<String> rewardTokens) {
         String apiKey = "lWNHoS4fLXuBid0KBQjZhISEhJfsiEqJtVDY4vf9";
         try {
-            SDKResponse response = harvestExecutionServiceApi.harvestReward(vaultAddress, stakedPool, rewardTokens,apiKey);
+            SDKResponse response = harvestExecutionServiceApi.harvestReward(vaultAddress, stakedPool, rewardTokens, apiKey);
             if (response == null || response.getStatusCode() == 0) {
                 return false;
             }
@@ -420,25 +410,26 @@ public class HelloWorldImpl implements HelloWorldService {
             if (response == null || response.getData() == null) {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_STAKED_POOLS.toString());
             }
-            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {});
+            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {
+            });
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
     }
 
-    private String getBasePoolFromStakedPoolList(ArrayList<String> stakedPool,String vaultAddress) throws JsonBuilderException {
+    private String getBasePoolFromStakedPoolList(ArrayList<String> stakedPool, String vaultAddress) throws JsonBuilderException {
         String convexRewardContract = "0xCF50b810E57Ac33B91dCF525C6ddd9881B139332";
         String cvxCrvRewardContract = "0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e";
         String basePool = null;
-        try{
-            for(Integer i =0;i<stakedPool.size();i++){
-                if(!stakedPool.get(i).equalsIgnoreCase(convexRewardContract) && !stakedPool.get(i).equalsIgnoreCase(cvxCrvRewardContract))
-                    if((getRewardBalance(vaultAddress,stakedPool.get(i))).compareTo(BigDecimal.ZERO)>0)
+        try {
+            for (Integer i = 0; i < stakedPool.size(); i++) {
+                if (!stakedPool.get(i).equalsIgnoreCase(convexRewardContract) && !stakedPool.get(i).equalsIgnoreCase(cvxCrvRewardContract))
+                    if ((getRewardBalance(vaultAddress, stakedPool.get(i))).compareTo(BigDecimal.ZERO) > 0)
                         return getLpToken(stakedPool.get(i));
                     else
                         basePool = getLpToken(stakedPool.get(i));
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
         return basePool;
@@ -450,7 +441,8 @@ public class HelloWorldImpl implements HelloWorldService {
             if (response == null || response.getData() == null) {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_TOKENS.toString());
             }
-            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {});
+            return OBJECT_MAPPER.convertValue(response.getData(), new TypeReference<ArrayList<String>>() {
+            });
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
@@ -475,8 +467,8 @@ public class HelloWorldImpl implements HelloWorldService {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
             if (sdkResponse.getData() == null)
                 throw new JsonBuilderException(sdkResponse.getMessage() != null ? sdkResponse.getMessage() : JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
-                String tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("TokenBalance").toString().split("\"",-2)[1];
-                return Long.parseLong(tokenBalance);
+            String tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("TokenBalance").toString().split("\"", -2)[1];
+            return Long.parseLong(tokenBalance);
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
         }
@@ -489,7 +481,7 @@ public class HelloWorldImpl implements HelloWorldService {
                 throw new JsonBuilderException(JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
             if (sdkResponse.getData() == null)
                 throw new JsonBuilderException(sdkResponse.getMessage() != null ? sdkResponse.getMessage() : JsonBuilderExceptionMessage.UNABLE_TO_GET_BALANCE.toString());
-            String tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("TokenBalance").toString().split("\"",-2)[1];
+            String tokenBalance = OBJECT_MAPPER.convertValue(sdkResponse.getData(), JsonNode.class).get("TokenBalance").toString().split("\"", -2)[1];
             return Long.parseLong(tokenBalance);
         } catch (Exception e) {
             throw new JsonBuilderException(e.getMessage(), e);
