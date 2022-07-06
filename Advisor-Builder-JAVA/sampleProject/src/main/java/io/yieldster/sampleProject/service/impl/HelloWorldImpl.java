@@ -186,8 +186,8 @@ public class HelloWorldImpl implements HelloWorldService {
                 initiateHarvest(vaultAddress, stakedPool, rewardTokensOfPool);
             }
             for (String asset : getAssetList(vaultAddress)) {
-                Long assetBalance = getTokenBalanceFromString(asset, vaultAddress);// Finding new balance for each and every rewardToken
-                if (assetBalance > 0) { // Check for positive difference
+                Long assetBalance = getTokenBalanceFromString(asset, vaultAddress);
+                if (assetBalance > 0) {
                     if (asset.equalsIgnoreCase(cvxToken)) {
                         stepList.add(MoveStep.builder()
                                 .fromAsset(cvxToken)
