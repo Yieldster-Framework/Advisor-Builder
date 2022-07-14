@@ -13,5 +13,5 @@ public class MoveStep extends Step {
     String type = "MoveStep";
     String fromAsset;
     String toAsset;
-    Long amount;
+    BigInteger amount;
 }
